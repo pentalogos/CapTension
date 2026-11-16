@@ -1,8 +1,72 @@
 # CapTension
 
+**A Glyphs 4 plugin for FontLab-style adjustable cap tension on native strokes.** CapTension turns the usual three-way choice — butt, round, square — into a continuous `0–100` value: `0` pointed, `55.23` approximately round, `100` square. Values are stored per path end, the cap shape keeps a fixed node count, and the result is safe for variable fonts.
+
+**Keywords:** Glyphs 4 plugin, GlyphsApp plugin, cap tension, stroke cap, round cap, square cap, pointed cap, variable font, type design, FontLab alternative, font editor, Python.
+
+> 中文文档见下方。
+
+## Why CapTension?
+
+Glyphs natively offers butt, round, and square line caps. CapTension adds the in-between shapes type designers tune in FontLab, without converting the stroke to outlines. It is useful for display type, geometric sans, monoline scripts, and any project where the cap shape is part of the voice.
+
+## At a glance
+
+| Value | Cap shape |
+|---:|---|
+| `0` | pointed |
+| `55.23` | round |
+| `100` | square |
+
+- Per-endpoint values: the two ends of one path can differ.
+- Selection-scoped: only selected endpoints, paths, or Font View glyphs are touched.
+- Live: applied caps stay editable as real, locked, filled paths.
+- Variable-font friendly: the cap outline always has the same node count.
+- Scriptable: a Python API and a clipboard-ready batch guide are included.
+- UI in English, Simplified Chinese, and Traditional Chinese.
+
+## Install
+
+```bash
+git clone https://github.com/pentalogos/CapTension.git
+cp -R CapTension/plugins/CapTension.glyphsPalette \
+  ~/Library/Application\ Support/Glyphs\ 4/Plugins/
+```
+
+Restart Glyphs 4. The `CapTension` palette appears in the sidebar.
+
+## FAQ
+
+**What is cap tension?**  
+A continuous parameter for the shape of a stroke's end, between pointed (`0`), round (`55.23`), and square (`100`).
+
+**How is this different from Glyphs' native round cap?**  
+Native caps are limited to butt, round, and square. CapTension interpolates the cap outline and stores a value per path end, so one path can have a round start and a square end.
+
+**Does it work with variable fonts?**  
+Yes. The generated cap path always has the same node structure, so it can interpolate between masters.
+
+**Does it modify my font permanently?**  
+It adds locked filled cap paths and stores state in `path.userData`. `Clear` removes them and restores native square caps. Work on a copy until you are comfortable with the result.
+
+**Which paths are supported?**  
+Open paths with equal `strokeWidth` and `strokeHeight`, a centered stroke, and a solid stroke color. Closed paths and gradient strokes are skipped.
+
+**Does it work in Glyphs 3?**  
+No. CapTension targets Glyphs 4.
+
+**Can I batch-apply it?**  
+Yes. Use the palette selection, or `api.py` from the Macro Panel. The `Copy Batch Instructions` button copies a complete API guide.
+
+---
+
+## 中文文档
+
 CapTension 是一个 Glyphs 4 插件，让原生 Glyphs stroke 可以获得类似 FontLab 中 Cap Tension 式的可调笔端形状。
 
 数值范围为 0–100：`0` 为尖头，`55.23` 约为正圆，`100` 为方头（带有微小圆角）。笔端形状以端点为单位套用，因此同一条路径的两端可以各自保留不同数值。笔端形状的节点数不随数值改变，使得它可以适用于可变字体。
+
+**关键词：** Glyphs 4 插件、笔端、笔画端头、圆头、方头、尖头、可变字体、字体设计、FontLab、GlyphsApp。
 
 ---
 
@@ -199,6 +263,25 @@ value = api.get_value()
 
 ---
 
+## 常见问题
+
+**CapTension 和原生圆头有什么不同？**  
+原生只有平头、圆头、方头；CapTension 在 0–100 之间连续调整笔端轮廓，并可为同一条路径的两端分别设值。
+
+**支持可变字体吗？**  
+支持。笔端轮廓的节点数固定，不随数值改变，可以在母版之间正常插值。
+
+**会改坏原字吗？**  
+插件会加入 locked 的填色笔端路径，并在 `path.userData` 记录状态；按 `清除` 可移除并还原。建议先在副本上测试。
+
+**能批量处理吗？**  
+可以。Palette 按选取范围处理，也可以用 `api.py` 在 Macro Panel 批量套用。
+
+**为什么有些路径不处理？**  
+只处理开放路径、`strokeWidth == strokeHeight`、居中 stroke、实色 stroke；闭合路径和 gradient 会跳过。
+
+---
+
 ## 开发
 
 执行测试（不需要 Glyphs）：
@@ -220,6 +303,7 @@ core.py                                  几何核心
 plugins/CapTension.glyphsPalette/          Palette 插件（内含 Vanilla、api.py、i18n、批处理说明）
 tests/                                   单元测试
 tools/build_plugins.py                   同步与检查插件 bundle
+llms.txt                                 给 AI 搜索／抓取用的项目摘要
 ```
 
 ### 几何模型

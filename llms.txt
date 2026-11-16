@@ -1,0 +1,69 @@
+# CapTension
+
+> Glyphs 4 plugin that adds FontLab-style adjustable cap tension to native strokes: `0` pointed, `55.23` round, `100` square. Values are stored per path end, and the cap outline keeps a fixed node count for variable fonts.
+
+CapTension is a free, open-source Glyphs 4 palette plugin for type designers. It replaces the three-way choice between butt, round, and square line caps with a continuous parameter, and it can apply different values to the two ends of the same path.
+
+## Facts
+
+- Platform: macOS, Glyphs 4
+- Plugin bundle: `CapTension.glyphsPalette`
+- License: MIT
+- Repository: https://github.com/pentalogos/CapTension
+- UI languages: English, Simplified Chinese, Traditional Chinese
+- Scope: selected endpoints/paths in Edit View, or selected glyphs in Font View
+- Does not cross masters or layers implicitly
+
+## Features
+
+- Continuous `0–100` cap shape: pointed, round, square, and in-between
+- Per-endpoint values on the same path
+- Real, locked, filled cap paths that remain editable in Glyphs
+- Fixed cap node count, suitable for variable-font interpolation
+- Selection-scoped apply and clear
+- Python scripting API (`api.py`) for glyph, master, layer, or font batches
+- Clipboard-ready batch API instructions from the palette
+
+## Install
+
+```bash
+git clone https://github.com/pentalogos/CapTension.git
+cp -R CapTension/plugins/CapTension.glyphsPalette \
+  ~/Library/Application\ Support/Glyphs\ 4/Plugins/
+```
+
+Restart Glyphs 4. The CapTension palette appears in the sidebar.
+
+## Usage
+
+1. Open a glyph in Edit View, or select glyphs in Font View.
+2. Select endpoints or open paths in Edit View.
+3. Drag the slider or enter a value.
+4. Click Apply to Selection.
+5. Click Clear to remove cap paths and restore native square caps.
+
+## Scripting API
+
+The plugin exposes `api.py` for Glyphs Macro Panel and scripts:
+
+```python
+api.apply_layer(layer, shape=55.23, ends=None)
+api.clear_layer(layer, ends=None)
+api.apply_glyph(glyph, shape=55.23, masters=None, ends=None)
+api.clear_glyph(glyph, masters=None, ends=None)
+api.apply_font(font, shape=55.23, glyphs=None, masters=None, ends=None)
+api.clear_font(font, glyphs=None, masters=None, ends=None)
+api.set_value(value, font=None)
+api.get_value(font=None)
+```
+
+## Supported paths
+
+Only open paths with equal `strokeWidth` and `strokeHeight`, a centered stroke, and a solid stroke color are processed. Closed paths and gradient strokes are skipped.
+
+## Links
+
+- [README](https://github.com/pentalogos/CapTension#readme)
+- [README (Chinese)](https://github.com/pentalogos/CapTension#中文文档)
+- [License](https://github.com/pentalogos/CapTension/blob/main/LICENSE)
+- [Issues](https://github.com/pentalogos/CapTension/issues)
