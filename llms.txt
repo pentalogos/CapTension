@@ -1,6 +1,6 @@
 # CapTension
 
-> Glyphs 4 plugin that adds FontLab-style adjustable cap tension to native strokes: `0` pointed, `55.23` round, `100` square. Values are stored per path end, and the cap outline keeps a fixed node count for variable fonts.
+> Glyphs 4 plugin that gives native strokes the semi-square, semi-round hybrid caps Glyphs cannot make natively — plus FontLab-style adjustable cap tension: `0` pointed, `55.23` round, `55.23–100` semi-square/semi-round, `100` square.
 
 CapTension is a free, open-source Glyphs 4 palette plugin for type designers. It replaces the three-way choice between butt, round, and square line caps with a continuous parameter, and it can apply different values to the two ends of the same path.
 
@@ -16,6 +16,7 @@ CapTension is a free, open-source Glyphs 4 palette plugin for type designers. It
 
 ## Features
 
+- Semi-square / semi-round hybrid caps between round and square, not only the three native caps
 - Continuous `0–100` cap shape: pointed, round, square, and in-between
 - Per-endpoint values on the same path
 - Real, locked, filled cap paths that remain editable in Glyphs
@@ -57,6 +58,11 @@ api.set_value(value, font=None)
 api.get_value(font=None)
 ```
 
+## Utilities
+
+- `scripts/copy_outlines_to_masters.py`: copy the current or selected glyphs to selected masters, with per-master stroke and cap-tension attributes, master groups, select-all, save/load presets, and remembered selections.
+- `scripts/clear_cap_tension.py`: remove CapTension cap paths and state for the current or selected glyphs across all masters.
+
 ## Supported paths
 
 Only open paths with equal `strokeWidth` and `strokeHeight`, a centered stroke, and a solid stroke color are processed. Closed paths and gradient strokes are skipped.
@@ -65,5 +71,7 @@ Only open paths with equal `strokeWidth` and `strokeHeight`, a centered stroke, 
 
 - [README](https://github.com/pentalogos/CapTension#readme)
 - [README (Chinese)](https://github.com/pentalogos/CapTension#中文文档)
+- [Copy outlines to masters](https://github.com/pentalogos/CapTension/blob/main/scripts/copy_outlines_to_masters.py)
+- [Clear cap tension](https://github.com/pentalogos/CapTension/blob/main/scripts/clear_cap_tension.py)
 - [License](https://github.com/pentalogos/CapTension/blob/main/LICENSE)
 - [Issues](https://github.com/pentalogos/CapTension/issues)

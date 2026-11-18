@@ -319,7 +319,7 @@ class TestLive(unittest.TestCase):
         self.assertEqual(path.attributes.writes, [])
         self.assertEqual(len(self.cap_paths(layer)), caps_before)
 
-    def test_legacy_missing_signature_is_not_rebuilt_in_maintenance(self):
+    def test_missing_signature_is_not_rebuilt_in_maintenance(self):
         path = make_path((2, 2))
         layer = FakeLayer([path])
         self.live.update_layer(layer, 70, True, None, True)
