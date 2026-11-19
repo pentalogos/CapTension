@@ -98,14 +98,26 @@ def square_cap_corners(P, t, h):
     )
 
 
-def cap_shape_nodes(P, t, shape, h):
+# 端帽向筆畫內側多出的重疊長度（控制點後退距離，以半個筆畫寬 h 為單位）。
+# 母版插值時，端帽底邊的旋轉是線性的，而筆畫端面會依插值後的中線重新計算，
+# 兩者不一定完全重合；這段藏在筆畫裡的重疊可以避免端帽根部與筆畫分離。
+REAR_OVERLAP = 1.25
+
+
+def cap_shape_nodes(P, t, shape, h, rear_limit=None):
     """回傳一個「獨立筆端形狀」的封閉輪廓節點。
 
-    這個形狀的底邊是通過 P、垂直於 t 的直線，範圍是 X 到 Y；
+    這個形狀的底邊是通過 P、垂直於 t 的橫截面，範圍是 X 到 Y；
     它可以直接接在一個平頭（butt）筆畫的端點 P 上，形成新的筆端。
+    底邊後方另外有一個向筆畫內側鼓起的隱藏重疊區，用來吸收母版插值時
+    端帽與筆畫端面的微小角度差，避免根部出現尖縫。
 
-    節點順序：X(line) → 兩個 offcurve → tip(curve)
-              → 兩個 offcurve → Y(curve)，最後 Y→X 以直線閉合。
+    rear_limit 可限制重疊區的控制點後退距離，避免很短的筆畫被重疊區穿透。
+
+    節點順序：X(curve) → 兩個 offcurve → tip(curve, smooth)
+              → 兩個 offcurve → Y(curve) → 兩個 offcurve → 回到 X。
+    重疊區的控制點深度固定為 REAR_OVERLAP * h（曲線實際鼓起約 0.75 倍），
+    節點結構不隨 shape 改變。
     """
     k = h * shape / 100.0
     nv = (-t[1], t[0])
@@ -113,12 +125,17 @@ def cap_shape_nodes(P, t, shape, h):
     # 與 apply_caps 的右端慣例一致：X 在 -nv 側、Y 在 +nv 側。
     X = (P[0] - nv[0] * h, P[1] - nv[1] * h)
     Y = (P[0] + nv[0] * h, P[1] + nv[1] * h)
+    rear = h * REAR_OVERLAP
+    if rear_limit is not None:
+        rear = max(0.0, min(rear, float(rear_limit)))
     return [
-        (X[0], X[1], 'line', False),
+        (X[0], X[1], 'curve', False),
         (X[0] + t[0] * k, X[1] + t[1] * k, 'offcurve', False),
         (tip[0] - nv[0] * k, tip[1] - nv[1] * k, 'offcurve', False),
         (tip[0], tip[1], 'curve', True),
         (tip[0] + nv[0] * k, tip[1] + nv[1] * k, 'offcurve', False),
         (Y[0] + t[0] * k, Y[1] + t[1] * k, 'offcurve', False),
         (Y[0], Y[1], 'curve', False),
+        (Y[0] - t[0] * rear, Y[1] - t[1] * rear, 'offcurve', False),
+        (X[0] - t[0] * rear, X[1] - t[1] * rear, 'offcurve', False),
     ]

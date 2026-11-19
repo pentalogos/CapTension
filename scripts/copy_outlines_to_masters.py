@@ -256,7 +256,7 @@ def is_cap_like(path, live):
     """只排除 CapTension 端帽，其他路径全部复制。
 
     端帽有 userData 标记；如果标记丢失，则用几何特征兜底：
-    闭合、填色、没有 stroke、7 个节点（3 on-curve + 4 off-curve）。
+    闭合、填色、没有 stroke，以及固定的端帽节点结构（新 9 节点或旧 7 节点）。
     """
     if live.is_cap_path(path):
         return True
@@ -276,14 +276,21 @@ def is_cap_like(path, live):
             except (TypeError, ValueError):
                 return False
         nodes = list(path.nodes)
-        if len(nodes) != 7:
-            return False
-        # CapTension 端帽的固定结构：line + 2 off-curve + curve 重复两次
         types = [node.type for node in nodes]
-        return types == [
-            "line", "offcurve", "offcurve", "curve",
-            "offcurve", "offcurve", "curve",
-        ]
+        # 新結構：3 on-curve + 6 off-curve，後方多一段隱藏重疊。
+        if len(nodes) == 9:
+            return types == [
+                "curve", "offcurve", "offcurve", "curve",
+                "offcurve", "offcurve", "curve",
+                "offcurve", "offcurve",
+            ]
+        # 舊檔案：3 on-curve + 4 off-curve。
+        if len(nodes) == 7:
+            return types == [
+                "line", "offcurve", "offcurve", "curve",
+                "offcurve", "offcurve", "curve",
+            ]
+        return False
     except Exception:
         return False
 

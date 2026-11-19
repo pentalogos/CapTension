@@ -286,6 +286,29 @@ class TestLive(unittest.TestCase):
         for cap in self.cap_paths(layer):
             self.assertEqual(cap.attributes["fillColor"], "RED")
 
+    def test_generated_cap_has_hidden_rear_overlap(self):
+        path = make_path((2, 2))
+        layer = FakeLayer([path])
+        self.live.update_layer(layer, 55.23, True, None, True)
+        cap = self.cap_for(layer, path, "start")
+        self.assertEqual(len(cap.nodes), 9)
+        self.assertEqual(
+            [nd.type for nd in cap.nodes],
+            ["curve", "offcurve", "offcurve", "curve", "offcurve",
+             "offcurve", "curve", "offcurve", "offcurve"],
+        )
+
+    def test_old_cap_signature_is_rebuilt(self):
+        path = make_path((2, 2))
+        layer = FakeLayer([path])
+        self.live.update_layer(layer, 70, True, None, True)
+        # 模擬舊版端帽留下的簽名：不包含目前的幾何版本。
+        path.userData[self.live.SIG_START] = "old|signature"
+        path.userData[self.live.SIG_END] = "old|signature"
+        made, removed, kept = self.live.update_layer(
+            layer, 70, True, None, False)
+        self.assertEqual((made, removed), (2, 2))
+
     def test_signature_changes_when_node_moves(self):
         path = make_path((2, 2))
         layer = FakeLayer([path])

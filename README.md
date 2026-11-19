@@ -22,7 +22,7 @@ Glyphs natively offers butt, round, and square line caps. The shapes type design
 - Per-endpoint values: the two ends of one path can differ.
 - Selection-scoped: only selected endpoints, paths, or Font View glyphs are touched.
 - Live: applied caps stay editable as real, locked, filled paths.
-- Variable-font friendly: the cap outline always has the same node count.
+- Variable-font friendly: fixed node count, plus a hidden rear overlap that keeps the cap attached to the stroke between masters.
 - Scriptable: a Python API and a clipboard-ready batch guide are included.
 - Utilities: batch-copy outlines to selected masters and clear CapTension for a glyph across all masters.
 - UI in English, Simplified Chinese, and Traditional Chinese.
@@ -46,7 +46,7 @@ A continuous parameter for the shape of a stroke's end, between pointed (`0`), r
 Native caps are limited to three discrete choices: butt, round, and square. CapTension adds the continuous shapes between them — especially the **semi-square / semi-round hybrid caps** that Glyphs cannot make natively — and stores a value per path end, so one path can have a round start and a square end.
 
 **Does it work with variable fonts?**  
-Yes. The generated cap path always has the same node structure, so it can interpolate between masters.
+Yes. The generated cap path always has the same 9-node structure, and its rear edge extends into the stroke as a hidden overlap. If two masters resolve the stroke end slightly differently, the overlap keeps the cap root attached instead of opening a thin seam.
 
 **Does it modify my font permanently?**  
 It adds locked filled cap paths and stores state in `path.userData`. `Clear` removes them and restores native square caps. Work on a copy until you are comfortable with the result.
@@ -66,7 +66,7 @@ Yes. Use the palette selection, or `api.py` from the Macro Panel. The `Copy Batc
 
 CapTension 是一个 Glyphs 4 插件。Glyphs 原生只有平头、圆头、方头三种端头；CapTension 的主要目的，是让 Glyphs 也能做出**介于方头与圆头之间的「半方不圆」端头**——方中带圆、圆中带方，而不只是把三种原生端头做成可调。
 
-数值范围为 0–100：`0` 为尖头，`55.23` 约为正圆，`100` 为方头（带有微小圆角）。`55.23–100` 之间就是半方不圆的混合端头：不是完全的方头，也不是圆头；`0–55.23` 之间则是尖头到圆头的过渡。笔端形状以端点为单位套用，因此同一条路径的两端可以各自保留不同数值。笔端形状的节点数不随数值改变，使得它可以适用于可变字体。
+数值范围为 0–100：`0` 为尖头，`55.23` 约为正圆，`100` 为方头（带有微小圆角）。`55.23–100` 之间就是半方不圆的混合端头：不是完全的方头，也不是圆头；`0–55.23` 之间则是尖头到圆头的过渡。笔端形状以端点为单位套用，因此同一条路径的两端可以各自保留不同数值。笔端形状的节点数不随数值改变，并且底边后方有一段藏在笔画内的重叠区，使得它在可变字体插值时不会与笔画端面分离。
 
 **关键词：** Glyphs 4 插件、笔端、笔画端头、半方不圆、混合端头、圆角方头、圆头、方头、尖头、可变字体、字体设计、FontLab、GlyphsApp。
 
@@ -176,7 +176,7 @@ Palette 会显示目前选取端点已套用的数值；如果选取中含有多
 说明：
 
 - `cap` 留空表示不套用 CapTension；目标母版的原生端头由 `lineCapStart`／`lineCapEnd` 决定：`0=平头`、`1=圆头`、`2=方头`
-- 端帽优先按 `ptlg.CapTension.cap` 标记识别；如果标记丢失，会按结构兜底识别。若字形里有与端帽结构相同（闭合、填色、7 节点）的自定义路径，把脚本顶部 `DETECT_UNMARKED_CAPS` 改成 `False`
+- 端帽优先按 `ptlg.CapTension.cap` 标记识别；如果标记丢失，会按结构兜底识别（闭合、填色、固定 9 节点）。若字形里有与端帽结构相同的自定义路径，把脚本顶部 `DETECT_UNMARKED_CAPS` 改成 `False`
 - 使用前请先安装 CapTension 插件
 - 建议先在字体副本上测试
 
@@ -305,7 +305,8 @@ value = api.get_value()
 - 仅处理开放路径；闭合路径会跳过。
 - `strokeWidth` 必须等于 `strokeHeight`，且 `strokePosition` 必须居中。
 - 仅支持实色 stroke；`strokeGradient` 会跳过。
-- 即时模式会在图层中加入额外的 locked 笔端形状路径。它包含 3 个 on-curve 节点与 4 个手柄，编辑时会显示；拖动节点时可能慢一个 UI 更新。
+- 端帽后方有一段藏在笔画内的重叠区。若 stroke 使用半透明颜色，重叠区会与笔画叠加而略深；需要完全均匀时请使用不透明 stroke。
+- 即时模式会在图层中加入额外的 locked 笔端形状路径。它包含 3 个 on-curve 节点与 6 个手柄（共 9 个节点），编辑时会显示；拖动节点时可能慢一个 UI 更新。
 - 不会自动套用到所有母版或图层；请切换到目标图层后再套用。
 - 不支持 Copy Attributes／Paste Attributes；请使用 `套用到选取` 批量施加。
 - 导出时，已套用的笔端形状路径会一并输出；建议先在字体副本上测试。
@@ -318,7 +319,7 @@ value = api.get_value()
 原生只有平头、圆头、方头三个离散选项；CapTension 的重点是做出它们之间的混合端头，尤其是 `55.23–100` 之间的「半方不圆」端头，并可为同一条路径的两端分别设值。
 
 **支持可变字体吗？**  
-支持。笔端轮廓的节点数固定，不随数值改变，可以在母版之间正常插值。
+支持。笔端轮廓固定为 9 个节点，不随数值改变；底边后方还有一段藏在笔画内的重叠区，母版之间的端面角度略有差异时也能保持连接，不会裂出尖缝。
 
 **会改坏原字吗？**  
 插件会加入 locked 的填色笔端路径，并在 `path.userData` 记录状态；按 `清除` 可移除并还原。建议先在副本上测试。
@@ -364,9 +365,10 @@ llms.txt                                 给 AI 搜索／抓取用的项目摘�
 - 端点 `P`、向外单位切线 `t`、半宽 `h`
 - `X = P - n·h`、`Y = P + n·h`、`tip = P + t·h`，其中 `n = (-t.y, t.x)`
 - 手柄长度 `k = h × shape / 100`
-- 两段三次贝兹：`X → tip → Y`
+- 三段三次贝兹：`X → tip → Y → X`
+- 最后一段 `Y → X` 的控制点向笔画内侧后退 `1.25 × h`，曲线实际约鼓起 `0.94 × h`；这是藏在笔画里的重叠区，不会改变可见轮廓
 
-笔端形状的节点数固定，不随数值改变。
+笔端形状固定为 9 个节点（3 个 on-curve + 6 个手柄），不随数值改变。
 
 ---
 

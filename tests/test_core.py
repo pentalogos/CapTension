@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 import unittest
@@ -136,15 +137,17 @@ class TestCapTensionNodes(unittest.TestCase):
     def test_shape50_matches_right_end(self):
         nodes = core.cap_shape_nodes((114, 445), (1, 0), 50, 15)
         want = [
-            (114, 430, 'line'),
+            (114, 430, 'curve'),
             (121.5, 430, 'offcurve'),
             (129, 437.5, 'offcurve'),
             (129, 445, 'curve'),
             (129, 452.5, 'offcurve'),
             (121.5, 460, 'offcurve'),
             (114, 460, 'curve'),
+            (95.25, 460, 'offcurve'),
+            (95.25, 430, 'offcurve'),
         ]
-        self.assertEqual(len(nodes), 7)
+        self.assertEqual(len(nodes), 9)
         for got, exp in zip(nodes, want):
             self.assertAlmostEqual(got[0], exp[0], places=6)
             self.assertAlmostEqual(got[1], exp[1], places=6)
@@ -156,6 +159,7 @@ class TestCapTensionNodes(unittest.TestCase):
         self.assertEqual(coords, [
             (114, 430), (129, 430), (129, 430), (129, 445),
             (129, 460), (129, 460), (114, 460),
+            (95.25, 460), (95.25, 430),
         ])
 
     def test_shape0_handles_coincide(self):
@@ -164,12 +168,127 @@ class TestCapTensionNodes(unittest.TestCase):
         self.assertEqual(coords, [
             (114, 430), (114, 430), (129, 445), (129, 445),
             (129, 445), (114, 460), (114, 460),
+            (95.25, 460), (95.25, 430),
         ])
 
-    def test_closed_contour_has_line_base(self):
+    def test_hidden_rear_overlap(self):
         nodes = core.cap_shape_nodes((114, 445), (1, 0), 50, 15)
-        self.assertEqual(nodes[0][2], 'line')
-        self.assertEqual(nodes[-1][2], 'curve')
+        self.assertEqual(len(nodes), 9)
+        self.assertEqual(nodes[0][2], 'curve')
+        self.assertEqual(nodes[-1][2], 'offcurve')
+        # 後方重疊是從 Y 經兩個手柄回到 X 的曲線；中點在底邊後方 0.75*d。
+        X, Y = nodes[0], nodes[6]
+        rear = core.REAR_OVERLAP * 15
+        mid = (
+            (Y[0] + 3 * (Y[0] - rear) + 3 * (X[0] - rear) + X[0]) / 8.0,
+            (Y[1] + 3 * Y[1] + 3 * X[1] + X[1]) / 8.0,
+        )
+        self.assertAlmostEqual(mid[0], 114 - 0.75 * rear, places=6)
+        self.assertAlmostEqual(mid[1], 445, places=6)
+        # 重疊區不會超出筆畫的橫向寬度。
+        for x, y, typ, smooth in nodes:
+            self.assertLessEqual(abs(y - 445), 15 + 1e-9)
+
+    def test_rear_overlap_can_be_limited_for_short_segments(self):
+        nodes = core.cap_shape_nodes(
+            (114, 445), (1, 0), 50, 15, rear_limit=4)
+        # 最後兩個手柄都只後退 4，而不是預設的 1.25 * 15。
+        self.assertAlmostEqual(nodes[-1][0], 110)
+        self.assertAlmostEqual(nodes[-2][0], 110)
+
+
+def flatten_cap(nodes, steps=32):
+    """把封閉的三次貝茲輪廓取樣成折線，供插值測試使用。"""
+    start = next(i for i, nd in enumerate(nodes) if nd[2] != 'offcurve')
+    ordered = nodes[start:] + nodes[:start]
+    points = [(ordered[0][0], ordered[0][1])]
+    current = ordered[0]
+    i = 1
+    while i < len(ordered):
+        node = ordered[i]
+        if node[2] == 'offcurve':
+            controls = []
+            while i < len(ordered) and ordered[i][2] == 'offcurve':
+                controls.append(ordered[i])
+                i += 1
+            end = ordered[i] if i < len(ordered) else ordered[0]
+            if i < len(ordered):
+                i += 1
+            if len(controls) != 2:
+                raise ValueError("unexpected off-curve count")
+            p0, p1, p2, p3 = current, controls[0], controls[1], end
+            for step in range(1, steps + 1):
+                u = step / float(steps)
+                v = 1.0 - u
+                points.append((
+                    v ** 3 * p0[0] + 3 * v ** 2 * u * p1[0]
+                    + 3 * v * u ** 2 * p2[0] + u ** 3 * p3[0],
+                    v ** 3 * p0[1] + 3 * v ** 2 * u * p1[1]
+                    + 3 * v * u ** 2 * p2[1] + u ** 3 * p3[1],
+                ))
+            current = end
+        else:
+            points.append((node[0], node[1]))
+            current = node
+            i += 1
+    return points
+
+
+def point_in_polygon(poly, point):
+    x, y = point
+    inside = False
+    for i in range(len(poly)):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % len(poly)]
+        if ((y1 > y) != (y2 > y)) and (
+                x < (x2 - x1) * (y - y1) / (y2 - y1) + x1):
+            inside = not inside
+    return inside
+
+
+class TestCapInterpolation(unittest.TestCase):
+    """母版插值時，端帽根部不能與筆畫端面分離。"""
+
+    def test_hidden_rear_overlap_fills_interpolated_junction(self):
+        h = 50.0
+        # 兩個母版：手柄長度與端點切線方向都不同；形狀取方頭與圓頭。
+        masters = [
+            (150.0, 0.0),
+            (40.0 * math.cos(math.radians(45)),
+             40.0 * math.sin(math.radians(45))),
+        ]
+        shapes = (100.0, 55.23)
+        caps = [
+            core.cap_shape_nodes((0, 0), core.unit(*vec), shape, h)
+            for vec, shape in zip(masters, shapes)
+        ]
+        for weight in (0.25, 0.5, 0.75):
+            raw = (
+                (1 - weight) * masters[0][0] + weight * masters[1][0],
+                (1 - weight) * masters[0][1] + weight * masters[1][1],
+            )
+            face = core.unit(*raw)
+            nv = (-face[1], face[0])
+            nodes = [
+                ((1 - weight) * x1 + weight * x2,
+                 (1 - weight) * y1 + weight * y2, typ, smooth)
+                for (x1, y1, typ, smooth), (x2, y2, _, _)
+                in zip(caps[0], caps[1])
+            ]
+            poly = flatten_cap(nodes)
+            # 沿著插值後的筆畫端面取樣；端面外側一點必須被端帽覆蓋。
+            for i in range(-9, 10):
+                lateral = h * i / 10.0
+                for offset in (0.005 * h, 0.02 * h, 0.05 * h, 0.1 * h):
+                    point = (
+                        nv[0] * lateral + face[0] * offset,
+                        nv[1] * lateral + face[1] * offset,
+                    )
+                    self.assertTrue(
+                        point_in_polygon(poly, point),
+                        "w=%r lateral=%r offset=%r" % (
+                            weight, lateral, offset),
+                    )
 
 
 class TestHelpers(unittest.TestCase):

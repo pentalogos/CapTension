@@ -20,7 +20,7 @@ CapTension is a free, open-source Glyphs 4 palette plugin for type designers. It
 - Continuous `0–100` cap shape: pointed, round, square, and in-between
 - Per-endpoint values on the same path
 - Real, locked, filled cap paths that remain editable in Glyphs
-- Fixed cap node count, suitable for variable-font interpolation
+- Fixed 9-node cap structure, plus a hidden rear overlap into the stroke, for variable-font interpolation without root seams
 - Selection-scoped apply and clear
 - Python scripting API (`api.py`) for glyph, master, layer, or font batches
 - Clipboard-ready batch API instructions from the palette

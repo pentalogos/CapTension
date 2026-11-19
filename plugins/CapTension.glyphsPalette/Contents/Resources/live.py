@@ -13,6 +13,7 @@
 每個端點會記住自己套用的 shape 值，所以選 A 端拖滑桿不會改到 B 端。
 """
 
+import math
 import traceback
 import uuid
 
@@ -34,6 +35,9 @@ SIG_END = PREFIX + ".sigEnd"
 BUTT = 0
 ROUND = 1
 SQUARE = 2
+
+# 端帽幾何版本。改變端帽節點結構時遞增，讓舊端帽在下次維護／套用時重建。
+CAP_GEOMETRY_VERSION = 2
 
 
 def _user_data(path):
@@ -258,8 +262,34 @@ def path_signature(path):
 
 
 def end_signature(path, side, shape_value):
-    return "%s|side=%s|shape=%r" % (
-        path_signature(path), side, round(float(shape_value), 6))
+    return "v%d|%s|side=%s|shape=%r" % (
+        CAP_GEOMETRY_VERSION, path_signature(path), side,
+        round(float(shape_value), 6))
+
+
+def end_chord(path, from_start):
+    """回傳端點到下一個 on-curve 節點的直線距離，用來限制重疊深度。"""
+    try:
+        nodes = list(path.nodes)
+        if len(nodes) < 2:
+            return None
+        if from_start:
+            origin = nodes[0].position
+            for node in nodes[1:]:
+                if node.type != "offcurve":
+                    return math.hypot(
+                        node.position.x - origin.x,
+                        node.position.y - origin.y)
+        else:
+            origin = nodes[-1].position
+            for node in reversed(nodes[:-1]):
+                if node.type != "offcurve":
+                    return math.hypot(
+                        node.position.x - origin.x,
+                        node.position.y - origin.y)
+    except Exception:
+        return None
+    return None
 
 
 def make_cap_path(nodes, color, owner, side):
@@ -559,7 +589,10 @@ def update_layer(layer, shape, enabled, targets=None, manage_new=False, force_bu
                     continue
                 h = float(path.strokeWidth()) / 2.0
                 color = stroke_color(path)
-                nodes = core.cap_shape_nodes(P, t, stored_shape, h)
+                chord = end_chord(path, from_start)
+                rear_limit = None if chord is None else 0.45 * chord
+                nodes = core.cap_shape_nodes(
+                    P, t, stored_shape, h, rear_limit)
                 new_cap = make_cap_path(nodes, color, owner, side)
                 layer.addShape_(new_cap)
                 _set_string(path, sigkey, current_sig)
